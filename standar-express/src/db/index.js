@@ -1,11 +1,9 @@
 import mongoose from "mongoose";
 
-const DB_NAME = "standard-express";
-
 export const connectDB = async () => {
   try {
     const connectionResponse = await mongoose.connect(
-      `${process.env.MONGO_URI}/${DB_NAME}`
+      `${process.env.MONGO_URI}`
     );
     console.log(
       "DB Connection successful.",
