@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
-
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const userSchema = new Schema(
   {
@@ -64,7 +64,7 @@ userSchema.methods.generateAccessToken = async function () {
     },
     process.env.ACCESSTOKEN_SECRET_KEY,
     {
-      expiresIn: ACCESSTOKEN_EXP_TIME,
+      expiresIn: process.env.ACCESSTOKEN_EXP_TIME,
     }
   );
 };
@@ -76,7 +76,7 @@ userSchema.methods.generateRefreshToken = async function () {
     },
     process.env.REFRESH_TOKEN_SECRET_KEY,
     {
-      expiresIn: REFRESH_TOKEN_EXP_TIME,
+      expiresIn: process.env.REFRESH_TOKEN_EXP_TIME,
     }
   );
 };
