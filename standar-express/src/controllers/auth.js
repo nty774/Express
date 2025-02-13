@@ -1,6 +1,6 @@
 import { uploadFileToCloundinary } from "../utils/cloudinary.js";
-import fs from "fs";
 import { User } from "../models/user.js";
+import fs from "fs";
 import jwt from "jsonwebtoken";
 
 export const registerController = async (req, res) => {
@@ -40,7 +40,7 @@ export const registerController = async (req, res) => {
     });
 
     const createUser = await User.findById(user._id).select(
-      "-password -refreshToken"
+      "-password -refresh_token"
     );
 
     if (!createUser) {
@@ -69,11 +69,11 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
     const exitingUser = await User.findOne(userId);
 
     if (!exitingUser) {
-      return res.status(404).json({ message: "No user found" });
+      return res.status(404).json({ message: "No user found." });
     }
 
-    const accessToken = exitingUser.generateAccessToken();
-    const refreshToken = exitingUser.generateRefreshToken();
+    const accessToken = await exitingUser.generateAccessToken();
+    const refreshToken = await exitingUser.generateRefreshToken();
 
     exitingUser.refresh_token = refreshToken;
     await exitingUser.save({ validateBeforeSave: false });
@@ -96,14 +96,13 @@ export const loginController = async (req, res) => {
     $or: [{ username }, { email }],
   });
 
+  if (!exitingUser) {
+    return res.status(404).json({ message: "No user found." });
+  }
   const isPasswordMath = await exitingUser.isPasswordisMatch(password);
 
   if (!isPasswordMath) {
-    return res.status(401).json({ message: "Invaild Credentials" });
-  }
-
-  if (!exitingUser) {
-    return res.status(404).json({ message: "No user found" });
+    return res.status(401).json({ message: "Invaild Credentials." });
   }
 
   const { accessToken, refreshToken } =
@@ -115,7 +114,7 @@ export const loginController = async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: process.env.Node_ENV === "production ",
+    secure: process.env.NODE_ENV === "production",
   };
 
   return res
@@ -123,4 +122,83 @@ export const loginController = async (req, res) => {
     .cookie("accessToken", accessToken, options)
     .cookie("refrechToken", refreshToken, options)
     .json({ user: loggedUser, message: "Login success" });
+};
+
+export const generateNewRefreshToken = async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    return res.status(401).json({ message: "No refresh token." });
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET_KEY
+    );
+
+    const existingUser = await User.findById(decodedToken?._id);
+
+    if (!existingUser) {
+      return res.status(404).json({ message: "No user found." });
+    }
+
+    if (incomingRefreshToken !== existingUser.refresh_token) {
+      return res.status(401).json({ message: "Invaild refresh token." });
+    }
+
+    const { accessToken, refreshToken } =
+      await generateAccessTokenAndRefreshToken(existingUser._id);
+
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({ message: "Token updated." });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+
+export const logoutController = async (req, res) => {
+  if (!req.user || !req.user._id) {
+    return res.status(400).json({ message: "Logout Unauthorized" });
+  }
+
+  try {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $unset: {
+          refresh_token: 1,
+        },
+      },
+      {
+        new: true,
+      }
+    );
+
+    const existingUser = await User.findById(req.user._id);
+    // console.log(existingUser);
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    };
+
+    return res
+      .status(200)
+      .clearCookie("accessToken", options)
+      .clearCookie("refreshToken", options)
+      .json({ message: `${req.user.username} logout successfully ` });
+  } catch (error) {}
+  console.log("Logout error :", error);
+  return res.status(500).json({ message: "Something went wrong." });
+  // res.status(200).json({user:req.user});
 };

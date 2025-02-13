@@ -1,13 +1,16 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const userSchema = new Schema(
   {
     username: {
       type: String,
       required: true,
-      uniquee: true,
+      unique: true,
       lowercase: true,
       trim: true,
       index: true,
@@ -15,6 +18,7 @@ const userSchema = new Schema(
     email: {
       type: String,
       required: true,
+      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -29,7 +33,7 @@ const userSchema = new Schema(
     cover_photo: {
       type: String,
     },
-    refresh: {
+    refresh_token: {
       type: String,
     },
     posts: [
@@ -46,7 +50,6 @@ const userSchema = new Schema(
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
@@ -56,23 +59,23 @@ userSchema.methods.isPasswordisMatch = async function (password) {
 };
 
 userSchema.methods.generateAccessToken = async function () {
-  jwt.sign(
+  return jwt.sign(
     {
-      _id: this.id,
+      _id: this._id,
       email: this.email,
       username: this.username,
     },
-    process.env.ACCESSTOKEN_SECRET_KEY,
+    process.env.ACCESS_TOKEN_SECRET_KEY,
     {
-      expiresIn: process.env.ACCESSTOKEN_EXP_TIME,
+      expiresIn: process.env.ACCESS_TOKEN_EXP_TIME,
     }
   );
 };
 
 userSchema.methods.generateRefreshToken = async function () {
-  jwt.sign(
+  return jwt.sign(
     {
-      _id: this.id,
+      _id: this._id,
     },
     process.env.REFRESH_TOKEN_SECRET_KEY,
     {
